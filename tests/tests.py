@@ -5,8 +5,8 @@ import gmail_oauth2_imap as gmap
 import os
 
 
-class IMAP_OAuth2_Test(unittest.TestCase):
-    def test_imap_oauth2_test(self):
+class Test_IMAP_OAuth2(unittest.TestCase):
+    def test_imap_oauth2(self):
 
         gmap.KEY = os.path.dirname(__file__) + "/.secret/privatekey.p12"
         gmap.SERVICE_ACCOUNT_EMAIL = "89576170682-1v4a6kh1l382akel7fs89an8q6kna61u@developer.gserviceaccount.com"
