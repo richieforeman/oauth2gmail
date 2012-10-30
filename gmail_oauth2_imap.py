@@ -3,6 +3,10 @@ __author__ = 'Richie Foreman <richie.foreman@gmail.com>'
 import httplib2
 from oauth2client.client import SignedJwtAssertionCredentials
 import imaplib
+import email
+from time import sleep
+import logging
+import random
 
 KEY = None
 SERVICE_ACCOUNT_EMAIL = None
@@ -26,7 +30,12 @@ def get_credentials(**kwargs):
                                                 **kwargs)
 
     authorized_http = credentials.authorize(http)
-    credentials.refresh(authorized_http)
+    for n in range(5):
+        try:
+            credentials.refresh(authorized_http)
+            logging.info("Creds Ok for user %s" % kwargs["prn"])
+        except:
+            sleep((2 ** n) + random.randint(0, 1000) / 1000)
     return credentials
 
 def GenerateOAuth2String(username, access_token):
@@ -67,4 +76,21 @@ def get_imap_connection(prn):
 
 class GMail_IMAP(imaplib.IMAP4_SSL):
     # I might put stuff here later...  GMail does some cool searching stuff.
+
+    def search(self, query="in:anywhere", message_parts="(RFC822)"):
+        '''
+        Perform a search with GMail, and yield a list of email.Messages
+        '''
+
+        #select this, just incase the user forgets to.
+        self.select("[Gmail]/All Mail")
+
+        status, data = self.uid('SEARCH', "X-GM-RAW", query)
+        if status == "OK":
+            for uid in data[0].split(" "):
+                message_text = self.uid("fetch", uid, message_parts)[1][0][1]
+                yield email.message_from_string(message_text)
+        else:
+            raise Exception
+
     pass
