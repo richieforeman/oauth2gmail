@@ -1,7 +1,7 @@
 __author__ = 'Richie'
 
 import unittest
-from gmail_oauth2_imap import GMail_IMAP
+from oauth2gmail import GMail_IMAP, GMail_SMTP
 from oauth2client.client import SignedJwtAssertionCredentials, OAuth2WebServerFlow, flow_from_clientsecrets
 from oauth2client.tools import run
 from oauth2client.file import Storage
@@ -16,10 +16,25 @@ CLIENT_SECRET_WEB = open("client_secret_web.txt").read().strip()
 
 USERNAME = "richie@richieforeman.com"
 
+class Test_SMTP_OAuth2(unittest.TestCase):
+    def test_smtp_JWTserviceAccount(self):
+
+        f = file(PRIVATE_KEY, 'rb')
+        key = f.read()
+        f.close()
+
+        credentials = SignedJwtAssertionCredentials(service_account_name=SERVICE_ACCOUNT_EMAIL,
+                                                    private_key=key,
+                                                    scope=" ".join(SCOPES),
+                                                    prn=USERNAME)
+
+        smtp = GMail_SMTP()
+        smtp.login_oauth2(USERNAME, credentials=credentials)
+
+
+
 class Test_IMAP_OAuth2(unittest.TestCase):
     def test_imap_JWTserviceAccount(self):
-
-
 
         f = file(PRIVATE_KEY, 'rb')
         key = f.read()
