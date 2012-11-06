@@ -1,4 +1,4 @@
-gmail-oauth2serviceaccount-imap
+gmail-oauth2-imap
 ===============================
 
-OAuth2 Service Account Authenticated IMAP with GMail
+OAuth2 Authenticated IMAP for GMail

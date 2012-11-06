@@ -1,0 +1,5 @@
+auth.dat
+auth_secrets.dat
+client_secrets.json
+privatekey.p12
+client_secret_web.txt
