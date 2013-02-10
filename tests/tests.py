@@ -57,6 +57,7 @@ class Test_IMAP_OAuth2(unittest.TestCase):
 
         storage = Storage("auth.dat")
         credentials = run(flow, storage)
+        credentials.authorize()
 
         imap = GMail_IMAP()
         imap.login_oauth2(USERNAME, credentials=credentials)

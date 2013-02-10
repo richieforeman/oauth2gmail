@@ -42,22 +42,18 @@ class GMail_IMAP(imaplib.IMAP4_SSL):
         imaplib.IMAP4_SSL.__init__(self, host, **kwargs)
 
     def login_oauth2(self, username, credentials):
-
         credentials = refresh_credentials(credentials)
-
         auth_string = generate_xoauth2_string(username=username,
                                               access_token=credentials.access_token)
-
         self.authenticate("XOAUTH2", lambda x: auth_string)
 
 
-    def search(self, query="in:anywhere", message_parts="(RFC822)"):
+    def gmsearch(self, query="in:anywhere", folder="[Gmail]/All Mail", message_parts="(RFC822)"):
         '''
         Perform a search with GMail, and yield a list of email.Messages
         '''
 
-        #select this, just incase the user forgets to.
-        self.select("[Gmail]/All Mail")
+        self.select(folder)
 
         status, data = self.uid('SEARCH', "X-GM-RAW", query)
         if status == "OK":
