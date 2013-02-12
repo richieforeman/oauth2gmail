@@ -33,7 +33,7 @@ class Test_SMTP_OAuth2(unittest.TestCase):
         smtp = GMail_SMTP()
         smtp.login_oauth2(USERNAME, credentials=credentials)
 
-'''class Test_IMAP_OAuth2JWT(unittest.TestCase):
+class Test_IMAP_OAuth2JWT(unittest.TestCase):
     def test_JWTServiceAccount(self):
         f = file(PRIVATE_KEY, 'rb')
         key = f.read()
@@ -47,11 +47,11 @@ class Test_SMTP_OAuth2(unittest.TestCase):
         imap = GMail_IMAP()
         imap.login_oauth2(USERNAME, credentials=credentials)
 
-        imap.select("INBOX")'''
-
-
+        imap.select("INBOX")
 
 class Test_IMAP_OAuth2(unittest.TestCase):
+    credentials = None
+    imap = None
 
 
     def setUp(self):
@@ -64,10 +64,14 @@ class Test_IMAP_OAuth2(unittest.TestCase):
             credentials = run(self.flow, storage)
         self.credentials = credentials
 
-    def test_gmsearch(self):
         imap = GMail_IMAP()
+        imap.debug = 4
         imap.login_oauth2(USERNAME, credentials=self.credentials)
-        status, data = imap.gmsearch("in:anywhere")
+        imap.select("INBOX")
+        self.imap = imap
+
+    def test_gmsearch(self):
+        status, data = self.imap.gmsearch("in:anywhere")
 
         self.assertEqual(status, "OK")
         # we should be able to parse a bunch of uids here.
@@ -75,9 +79,8 @@ class Test_IMAP_OAuth2(unittest.TestCase):
         self.assertGreater(len(uids), 1)
 
     def test_gmsearch_messages(self):
-        imap = GMail_IMAP()
-        imap.login_oauth2(USERNAME, credentials=self.credentials)
-        for data, message in imap.gmsearch_messages("in:anywhere"):
+
+        for data, message in self.imap.gmsearch_messages("in:anywhere"):
             # we should get a dictionary
             self.assertIsInstance(data, dict)
             # ... with a bunch of fields
@@ -94,19 +97,55 @@ class Test_IMAP_OAuth2(unittest.TestCase):
         auth_string = GMail_IMAP.generate_xoauth2_string(username, access_token)
         self.assertEqual(auth_string, 'user=%s\1auth=Bearer %s\1\1' % (username, access_token))
 
-    def test_imap_fromclientsecrets(self):
-        imap = GMail_IMAP()
-        imap.debug = 4
-        imap.login_oauth2(USERNAME, credentials=self.credentials)
-        imap.select("INBOX")
-
     def test_imap_noaccesstoken(self):
+        # the library should detect the lack of access token, and use the refresh token to go get a new one.
         self.credentials.access_token = None
 
         imap = GMail_IMAP()
         imap.debug = 4
         imap.login_oauth2(USERNAME, credentials=self.credentials)
         imap.select("INBOX")
+
+    def test_imap_search_gm_msgid(self):
+
+        # fetch a random sample message.
+        message_data = None
+        message = None
+        for data, email in self.imap.gmsearch_messages():
+            message_data = data
+            message = email
+            break
+
+        # try to cash in the X-GM-MSGID
+        status, data = self.imap.search_gm_msgid(message_data["X-GM-MSGID"])
+        self.assertEqual(status, "OK")
+
+    def test_imap_fetch_gm_msgid(self):
+
+        # fetch a random sample message.
+        message_data = None
+        message = None
+        for data, email in self.imap.gmsearch_messages():
+            message_data = data
+            message = email
+            break
+
+        status, data = self.imap.fetch_gm_msgid(message_data["X-GM-MSGID"], "(UID)")
+        self.assertEqual(status, "OK")
+    def test_imap_fetch_gm_msgid_message(self):
+
+        # fetch a random sample message.
+        message_data = None
+        message = None
+        for data, email in self.imap.gmsearch_messages():
+            message_data = data
+            message = email
+            break
+
+        data, email = self.imap.fetch_gm_msgid_message(message_data["X-GM-MSGID"])
+
+        # should be the same thing.
+        self.assertEqual(data, message_data)
 
     def test_imap_fromexpiredclientsecrets(self):
 

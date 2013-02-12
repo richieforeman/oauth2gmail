@@ -64,6 +64,28 @@ class GMail_IMAP(imaplib.IMAP4_SSL, GMailOAuth2Mixin):
         auth_string = self._get_oauth_string(username, credentials)
         self.authenticate("XOAUTH2", lambda x: auth_string)
 
+    def search_gm_msgid(self, msgid):
+        '''
+        Perform a search on X-GM-MSGID.  Designed to be similar to imap.search()
+        '''
+        return self.uid("SEARCH", "X-GM-MSGID", msgid)
+
+    def fetch_gm_msgid(self, msgid, message_parts):
+        '''
+        Fetch a message on X-GM-MSGID.  Designed to be similar to imap.fetch()
+        '''
+        status, uids = self.search_gm_msgid(msgid)
+        uids = uids[0].split(" ")
+
+        return self.fetch(uids[0], message_parts=message_parts)
+
+    def fetch_gm_msgid_message(self, msgid):
+        status, uids = self.search_gm_msgid(msgid)
+
+        uids = uids[0].split(" ")
+
+        return self._fetch_message(uids[0])
+
     def _fetch_message(self, uid):
         '''
         This is a special method that takes care of fetching a message body into an email.Message object
