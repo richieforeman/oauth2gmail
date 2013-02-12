@@ -6,13 +6,15 @@ from oauth2client.client import SignedJwtAssertionCredentials, OAuth2WebServerFl
 from oauth2client.tools import run
 from oauth2client.file import Storage
 import os
+import httplib2
+import datetime
+import email
+httplib2.debuglevel = 4
 
-PRIVATE_KEY = os.path.dirname(__file__) + "/privatekey.p12"
+BASEDIR = os.path.dirname(__file__)
+PRIVATE_KEY = BASEDIR + "/privatekey.p12"
 SERVICE_ACCOUNT_EMAIL = "497989677686@developer.gserviceaccount.com"
 SCOPES = ["https://mail.google.com/"]
-
-CLIENT_ID_WEB = "497989677686-udv6eqr67p4iq606rn6ifjbh277g5aef.apps.googleusercontent.com"
-CLIENT_SECRET_WEB = open("client_secret_web.txt").read().strip()
 
 USERNAME = "richie@richieforeman.com"
 
@@ -31,11 +33,8 @@ class Test_SMTP_OAuth2(unittest.TestCase):
         smtp = GMail_SMTP()
         smtp.login_oauth2(USERNAME, credentials=credentials)
 
-
-
-class Test_IMAP_OAuth2(unittest.TestCase):
-    def test_imap_JWTserviceAccount(self):
-
+'''class Test_IMAP_OAuth2JWT(unittest.TestCase):
+    def test_JWTServiceAccount(self):
         f = file(PRIVATE_KEY, 'rb')
         key = f.read()
         f.close()
@@ -48,33 +47,90 @@ class Test_IMAP_OAuth2(unittest.TestCase):
         imap = GMail_IMAP()
         imap.login_oauth2(USERNAME, credentials=credentials)
 
-        imap.select("INBOX")
+        imap.select("INBOX")'''
 
-    def test_imap_webServerFlow(self):
-        flow = OAuth2WebServerFlow(client_id=CLIENT_ID_WEB,
-                                   client_secret=CLIENT_SECRET_WEB,
-                                   scope=" ".join(SCOPES))
 
-        storage = Storage("auth.dat")
-        credentials = run(flow, storage)
-        credentials.authorize()
 
-        imap = GMail_IMAP()
-        imap.login_oauth2(USERNAME, credentials=credentials)
-        imap.select("INBOX")
+class Test_IMAP_OAuth2(unittest.TestCase):
 
-    def test_imap_fromclientsecrets(self):
-        flow = flow_from_clientsecrets(filename="client_secrets.json",
-                                       scope=" ".join(SCOPES))
+
+    def setUp(self):
+        self.flow = flow_from_clientsecrets(filename=BASEDIR + "/client_secrets.json",
+                                            scope=" ".join(SCOPES))
 
         storage = Storage("auth_secrets.dat")
-        credentials = run(flow, storage)
+        credentials = storage.get()
+        if credentials is None or credentials.invalid:
+            credentials = run(self.flow, storage)
+        self.credentials = credentials
+
+    def test_gmsearch(self):
+        imap = GMail_IMAP()
+        imap.login_oauth2(USERNAME, credentials=self.credentials)
+        status, data = imap.gmsearch("in:anywhere")
+
+        self.assertEqual(status, "OK")
+        # we should be able to parse a bunch of uids here.
+        uids = data[0].split(" ")
+        self.assertGreater(len(uids), 1)
+
+    def test_gmsearch_messages(self):
+        imap = GMail_IMAP()
+        imap.login_oauth2(USERNAME, credentials=self.credentials)
+        for data, message in imap.gmsearch_messages("in:anywhere"):
+            # we should get a dictionary
+            self.assertIsInstance(data, dict)
+            # ... with a bunch of fields
+            self.assertTrue(data.has_key("X-GM-MSGID"))
+            self.assertTrue(data.has_key("X-GM-THRID"))
+            self.assertTrue(data.has_key("uid"))
+            # .. and a message object.
+            self.assertTrue(message.has_key("From"))
+            break
+
+    def test_oauth2_token(self):
+        username = "richie@richieforeman.com"
+        access_token = "hahah"
+        auth_string = GMail_IMAP.generate_xoauth2_string(username, access_token)
+        self.assertEqual(auth_string, 'user=%s\1auth=Bearer %s\1\1' % (username, access_token))
+
+    def test_imap_fromclientsecrets(self):
+        imap = GMail_IMAP()
+        imap.debug = 4
+        imap.login_oauth2(USERNAME, credentials=self.credentials)
+        imap.select("INBOX")
+
+    def test_imap_noaccesstoken(self):
+        self.credentials.access_token = None
+
+        imap = GMail_IMAP()
+        imap.debug = 4
+        imap.login_oauth2(USERNAME, credentials=self.credentials)
+        imap.select("INBOX")
+
+    def test_imap_fromexpiredclientsecrets(self):
+
+        # fake an expired token
+        self.credentials.token_expiry = datetime.datetime(2012, 2, 10, 20, 59, 34)
+
+        old_access_token = self.credentials.access_token
+
+        imap = GMail_IMAP()
+        imap.debug = 4
+        imap.login_oauth2(USERNAME, credentials=self.credentials)
+        imap.select("INBOX")
+
+        self.assertNotEqual(old_access_token, imap._credentials.access_token, "We should have a new AccessToken")
+
+    def test_imap_freshtoken(self):
+        storage = Storage("null.dat")
+        credentials = run(self.flow, storage)
+
+        os.unlink("null.dat")
 
         imap = GMail_IMAP()
         imap.login_oauth2(USERNAME, credentials=credentials)
         imap.select("INBOX")
-
-
 
 
 if __name__ == '__main__':
